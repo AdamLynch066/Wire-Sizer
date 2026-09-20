@@ -573,11 +573,20 @@
 
     function sizeConduit(phaseWire, tWires, egcWire) {
         let areaReq = (WIRE_DATA[phaseWire][2] * (tWires - 1)) + WIRE_DATA[egcWire][2]; 
+        
+        // NEC Chapter 9 Table 1 Fill Limits
+        let fillLimit = 0.40;
+        if (tWires === 1) fillLimit = 0.53;
+        else if (tWires === 2) fillLimit = 0.31;
+
         for (let i = 0; i < CONDUIT_ORDER.length; i++) {
             let size = CONDUIT_ORDER[i];
             let area40 = Math.min(CONDUIT_DATA_RMC[size], CONDUIT_DATA_PVC[size]);
-            if (area40 >= areaReq) {
-                let area100 = area40 / 0.4;
+            // area40 is exactly 40% of the internal area. We calculate 100% area to apply the correct fill limit.
+            let area100 = area40 / 0.40;
+            let maxAllowableArea = area100 * fillLimit;
+            
+            if (maxAllowableArea >= areaReq) {
                 let fillPct = (areaReq / area100) * 100;
                 return { size: size, fill: fillPct.toFixed(1) };
             }
@@ -1016,14 +1025,14 @@
     }
 
     function runTrayCalc() {
-        let width = document.getElementById('t_width').value;
-        let maxArea = TRAY_LIMITS[width];
+        let width = parseFloat(document.getElementById('t_width').value);
+        let maxArea = TRAY_LIMITS[width.toString()];
         
         let totalArea = 0;
         let totalOd = 0;
         let breakdown = "";
-        let hasLarge = false; 
-        let hasSmall = false; 
+        let has1_0to4_0 = false;
+        let has250Plus = false;
 
         for(let i=1; i<=trayRowCount; i++) {
             let qtyEl = document.getElementById(`t_qty_${i}`);
@@ -1031,7 +1040,7 @@
                 let qty = parseInt(qtyEl.value);
                 if (qty > 0) {
                     let size = document.getElementById(`t_size_${i}`).value;
-                    let od = 0, area = 0, isSmall = false, label = size;
+                    let od = 0, area = 0, label = size;
 
                     if (size === 'custom_small' || size === 'custom_large') {
                         od = parseFloat(document.getElementById(`t_custom_od_${i}`).value) || 0;
@@ -1040,23 +1049,24 @@
                             return;
                         }
                         area = Math.PI * Math.pow((od / 2), 2);
-                        isSmall = (size === 'custom_small');
+                        if (size === 'custom_small') has1_0to4_0 = true;
+                        if (size === 'custom_large') has250Plus = true;
                         label = `Custom (${od}" OD)`;
                     } else {
                         let data = TRAY_WIRE_DATA[size];
                         od = data.od;
                         area = data.area;
-                        isSmall = ["1/0", "2/0", "3/0", "4/0"].includes(size);
+                        if (["1/0", "2/0", "3/0", "4/0"].includes(size)) has1_0to4_0 = true;
+                        else has250Plus = true;
                     }
 
-                    if (isSmall) {
-                        totalOd += (od * qty);
-                        hasSmall = true;
-                        breakdown += `• ${qty}x ${label} (OD: ${od}") = ${(od * qty).toFixed(2)}" total diameter.<br>`;
+                    totalOd += (od * qty);
+                    totalArea += (area * qty);
+                    
+                    if (["1/0", "2/0", "3/0", "4/0", "custom_small"].includes(size)) {
+                        breakdown += `• ${qty}x ${label} (OD: ${od}") = ${(od * qty).toFixed(2)}" diam.<br>`;
                     } else {
-                        totalArea += (area * qty);
-                        hasLarge = true;
-                        breakdown += `• ${qty}x ${label} (Area: ${area.toFixed(4)} sq in) = ${(area * qty).toFixed(2)} sq in total area.<br>`;
+                        breakdown += `• ${qty}x ${label} (Area: ${area.toFixed(4)} sq in, OD: ${od}")<br>`;
                     }
                 }
             }
@@ -1070,16 +1080,12 @@
         let passed = false;
         let mathStr = "";
 
-        if (hasLarge && !hasSmall) {
-            passed = totalArea <= maxArea;
-            mathStr = `Evaluating pure large-conductor run (NEC 392.22(B)(1)(a)):<br>Sum of Cross-Sectional Areas: ${totalArea.toFixed(2)} sq in.<br>Max Allowable Fill (Column 1): ${maxArea.toFixed(2)} sq in.`;
-        } else if (hasSmall && !hasLarge) {
+        if (has1_0to4_0) {
             passed = totalOd <= width;
-            mathStr = `Evaluating pure small-conductor run (NEC 392.22(B)(1)(b)):<br>Sum of Diameters: ${totalOd.toFixed(2)} inches.<br>Max Tray Width: ${width} inches.`;
-        } else {
-            let availableArea = maxArea - (1.1 * totalOd);
-            passed = totalArea <= availableArea;
-            mathStr = `Evaluating mixed-conductor run (NEC 392.22(B)(1)(c)):<br>Base Allowable Area: ${maxArea.toFixed(2)} sq in.<br>Deduction for small cables: 1.1 × ${totalOd.toFixed(2)}" = ${(1.1 * totalOd).toFixed(2)} sq in.<br>Available Area for large cables: ${availableArea.toFixed(2)} sq in.<br>Actual Area of large cables: ${totalArea.toFixed(2)} sq in.`;
+            mathStr = `Evaluating mixed or small-conductor run (NEC 392.22(B)(1)(d)):<br>Because 1/0 - 4/0 AWG conductors are present, all single conductors must be installed in a single layer without exceeding tray width.<br>Sum of All Diameters: ${totalOd.toFixed(2)} inches.<br>Max Tray Width: ${width} inches.`;
+        } else if (has250Plus) {
+            passed = totalArea <= maxArea;
+            mathStr = `Evaluating 250kcmil+ conductor run (NEC 392.22(B)(1)(b)):<br>Sum of Cross-Sectional Areas: ${totalArea.toFixed(2)} sq in.<br>Max Allowable Fill (Column 1): ${maxArea.toFixed(2)} sq in.`;
         }
 
         let statusColor = passed ? "green" : "#d9534f";
