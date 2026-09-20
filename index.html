@@ -104,6 +104,45 @@
             .tray-row select { flex: 3; min-width: 150px; }
             .tray-row input[placeholder="OD (in)"] { flex: 1 1 100%; margin-top: 5px; }
         }
+
+        /* ---------- Conduit Fill Tab ---------- */
+        .cf-row { display: flex; gap: 10px; align-items: center; }
+        .cf-qtybox { display: flex; flex: 0 0 122px; }
+        .cf-qtybox button { width: 36px; border: 1px solid #ccc; background: #f4f4f9; font-size: 18px; font-weight: bold; color: #333; cursor: pointer; padding: 0; }
+        .cf-qtybox button:hover { background: #e6e0d0; }
+        .cf-qtybox button:first-child { border-radius: 4px 0 0 4px; }
+        .cf-qtybox button:last-child { border-radius: 0 4px 4px 0; }
+        .cf-qtybox input { text-align: center; border-radius: 0; border-left: 0; border-right: 0; padding: 8px 2px; min-width: 0; -moz-appearance: textfield; }
+        .cf-qtybox input::-webkit-outer-spin-button, .cf-qtybox input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .cf-x { font-weight: bold; }
+        .cf-row select.cf-size { flex: 1; min-width: 0; }
+        .cf-row input.cf-od { flex: 0 0 140px; width: 140px; }
+        .cf-remove { background: none; border: 1px solid #ccc; border-radius: 4px; color: #8E908F; font-size: 16px; width: 36px; height: 36px; cursor: pointer; flex: 0 0 36px; padding: 0; }
+        .cf-remove:hover { color: #d9534f; border-color: #d9534f; }
+        .cf-add-btn { background: none; border: 1px dashed #ccc; padding: 12px; width: 100%; cursor: pointer; color: #666; font-weight: bold; border-radius: 4px; transition: background-color 0.2s; font-size: 14px; }
+        .cf-add-btn:hover { background: #f9f9f9; }
+
+        .cf-result-box { padding: 20px; background: #fff; border-radius: 4px; border: 2px solid green; margin-bottom: 15px; }
+        .cf-result-box.fail { border-color: #d9534f; }
+        .cf-pct-label { font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px; color: #666; font-weight: bold; }
+        .cf-pct { font-size: 48px; font-weight: bold; line-height: 1.1; color: green; }
+        .cf-pct.fail { color: #d9534f; }
+        .cf-status { font-size: 15px; font-weight: bold; margin: 8px 0 0 0; color: green; }
+        .cf-status.fail { color: #d9534f; }
+        .cf-msg { font-size: 14px; margin: 8px 0 0 0; line-height: 1.5; }
+        .cf-bar { position: relative; height: 18px; background: #e9ecef; border-radius: 9px; margin: 16px 0 6px 0; overflow: visible; }
+        .cf-bar-fill { height: 100%; border-radius: 9px; background: green; max-width: 100%; }
+        .cf-bar-fill.fail { background: #d9534f; }
+        .cf-bar-limit { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #000; }
+        .cf-bar-legend { font-size: 12px; color: #666; }
+
+        @media (max-width: 768px) {
+            .cf-row { flex-wrap: wrap; }
+            .cf-row select.cf-size { flex: 1 1 140px; }
+            .cf-row input.cf-od { flex: 1 1 100%; width: 100%; }
+            .cf-pct { font-size: 40px; }
+            .tabs .tab-btn:last-child:nth-child(odd) { grid-column: span 2; }
+        }
     </style>
 </head>
 <body>
@@ -119,6 +158,7 @@
             <button class="tab-btn" onclick="switchTab('motor', this)">Motor Circuit<br><small>(VFD/Starter)</small></button>
             <button class="tab-btn" onclick="switchTab('xfmr', this)">Transformer<br><small>Sizing</small></button>
             <button class="tab-btn" onclick="switchTab('tray', this)">Cable Tray<br><small>Fill Limit</small></button>
+            <button class="tab-btn" onclick="switchTab('conduit', this)">Conduit Fill<br><small>Percentage</small></button>
         </div>
 
         <!-- Feeder Circuit Tab -->
@@ -335,6 +375,43 @@
             </div>
             <div id="t_results" class="results"></div>
         </div>
+
+        <!-- Conduit Fill Tab -->
+        <div id="conduit" class="tab-content">
+            <div class="form-grid">
+                <div>
+                    <label>Conduit Type</label>
+                    <select id="cf_type" onchange="cfTypeChange()">
+                        <option value="rmc">Galvanized Rigid Metal Conduit (RMC)</option>
+                        <option value="alum">Aluminum Rigid Metal Conduit</option>
+                        <option value="pvc40" selected>Schedule 40 PVC</option>
+                        <option value="pvc80">Schedule 80 PVC</option>
+                        <option value="lfmc">Liquidtight Flexible Metal Conduit (LFMC)</option>
+                        <option value="emt">Electrical Metallic Tubing (EMT)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Conduit Trade Size</label>
+                    <select id="cf_size" onchange="cfCalc()"></select>
+                </div>
+                <div style="grid-column: span 2;">
+                    <label>Conductor Insulation Type</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="cf_ins" value="XHHW2" checked onchange="cfCalc()"> XHHW-2</label>
+                        <label><input type="radio" name="cf_ins" value="THHN" onchange="cfCalc()"> THHN / THWN-2</label>
+                    </div>
+                </div>
+                <div style="grid-column: span 2;">
+                    <label>Conductors in Conduit (include grounds and neutrals)</label>
+                    <div id="cf-rows-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 10px;"></div>
+                    <button type="button" class="cf-add-btn" onclick="cfAddRow()">+ Add Another Wire Size</button>
+                </div>
+            </div>
+            <div class="button-group">
+                <button class="reset-btn" onclick="resetDefaults('conduit')">Reset Defaults</button>
+            </div>
+            <div id="cf_results" class="results" style="display:block;"></div>
+        </div>
     </div>
 </div>
 
@@ -478,6 +555,7 @@
     }
 
     function resetDefaults(tab) {
+        if (tab === 'conduit') { cfReset(); return; }
         if (tab === 'feeder') {
             document.getElementById('f_volt').value = "480";
             autoFillWires('f');
@@ -1157,6 +1235,225 @@
     ['f_dist', 'f_load_amps', 'm_dist', 'm_load_amps', 'x_pri_dist', 'x_sec_dist'].forEach(id => {
         toggleGray(document.getElementById(id));
     });
+
+    // ================= Conduit Fill Tab =================
+    const CF_WIRE_ORDER = ["14","12","10","8","6","4","3","2","1","1/0","2/0","3/0","4/0","250","300","350","400","500","600"];
+    // Conductor cross-sectional areas (sq in) - NEC Chapter 9, Table 5
+    const CF_WIRE_AREA = {
+        XHHW2: { "14":0.0139,"12":0.0181,"10":0.0243,"8":0.0437,"6":0.0590,"4":0.0814,"3":0.0962,"2":0.1146,"1":0.1534,
+                 "1/0":0.1825,"2/0":0.2190,"3/0":0.2642,"4/0":0.3197,"250":0.3904,"300":0.4536,"350":0.5166,"400":0.5782,"500":0.6984,"600":0.8709 },
+        THHN:  { "14":0.0097,"12":0.0133,"10":0.0211,"8":0.0366,"6":0.0507,"4":0.0824,"3":0.0973,"2":0.1158,"1":0.1562,
+                 "1/0":0.1855,"2/0":0.2223,"3/0":0.2679,"4/0":0.3237,"250":0.3970,"300":0.4608,"350":0.5242,"400":0.5863,"500":0.7073,"600":0.8676 }
+    };
+    const CF_INS_LABEL = { XHHW2: "XHHW-2", THHN: "THHN/THWN-2" };
+    const CF_SIZE_ORDER = ["3/8","1/2","3/4","1","1 1/4","1 1/2","2","2 1/2","3","3 1/2","4","5","6"];
+    // Total internal cross-sectional area (100%, sq in) - NEC Chapter 9, Table 4
+    const CF_RMC_AREA = {"1/2":0.314,"3/4":0.549,"1":0.887,"1 1/4":1.526,"1 1/2":2.071,"2":3.408,"2 1/2":4.866,"3":7.499,"3 1/2":10.010,"4":12.882,"5":20.212,"6":29.158};
+    const CF_CONDUIT = {
+        rmc:   { name: "Galvanized Rigid Metal Conduit (RMC)", areas: CF_RMC_AREA },
+        alum:  { name: "Aluminum Rigid Metal Conduit", areas: CF_RMC_AREA },
+        pvc40: { name: "Schedule 40 PVC", areas: {"1/2":0.285,"3/4":0.508,"1":0.832,"1 1/4":1.453,"1 1/2":1.986,"2":3.291,"2 1/2":4.695,"3":7.268,"3 1/2":9.737,"4":12.554,"5":19.761,"6":28.567} },
+        pvc80: { name: "Schedule 80 PVC", areas: {"1/2":0.217,"3/4":0.409,"1":0.688,"1 1/4":1.237,"1 1/2":1.711,"2":2.874,"2 1/2":4.119,"3":6.442,"3 1/2":8.688,"4":11.258,"5":17.855,"6":25.598} },
+        lfmc:  { name: "Liquidtight Flexible Metal Conduit (LFMC)", areas: {"3/8":0.116,"1/2":0.317,"3/4":0.533,"1":0.817,"1 1/4":1.277,"1 1/2":1.858,"2":3.343,"2 1/2":4.881,"3":7.475,"3 1/2":9.731,"4":12.692} },
+        emt:   { name: "Electrical Metallic Tubing (EMT)", areas: {"1/2":0.304,"3/4":0.533,"1":0.864,"1 1/4":1.496,"1 1/2":2.036,"2":3.356,"2 1/2":5.858,"3":8.846,"3 1/2":11.545,"4":14.753} }
+    };
+
+    function cfWireLabel(s) {
+        if (s === "custom") return "Custom diameter...";
+        if (["250","300","350","400","500","600"].includes(s)) return `${s} kcmil`;
+        if (s.includes("/")) return `${s} AWG`;
+        return `#${s} AWG`;
+    }
+
+    function cfSizeOptions(selected) {
+        let h = `<option value="" ${selected === "" ? "selected" : ""} disabled>Select wire size...</option>`;
+        h += CF_WIRE_ORDER.map(s => `<option value="${s}" ${s === selected ? "selected" : ""}>${cfWireLabel(s)}</option>`).join("");
+        h += `<option value="custom" ${selected === "custom" ? "selected" : ""}>Custom diameter...</option>`;
+        return h;
+    }
+
+    function cfAddRow(qty = 0, size = "") {
+        let div = document.createElement('div');
+        div.className = 'cf-row';
+        div.innerHTML = `
+            <div class="cf-qtybox">
+                <button type="button" onclick="cfStep(this, -1)" aria-label="Decrease quantity">&minus;</button>
+                <input type="number" class="cf-qty" min="0" step="1" value="${qty}" inputmode="numeric" oninput="cfCalc()" aria-label="Quantity">
+                <button type="button" onclick="cfStep(this, 1)" aria-label="Increase quantity">+</button>
+            </div>
+            <span class="cf-x">x</span>
+            <select class="cf-size" onchange="cfSizeChange(this)">${cfSizeOptions(size)}</select>
+            <input type="number" class="cf-od" placeholder="Overall dia. (in)" step="0.001" min="0" style="display:none;" oninput="cfCalc()">
+            <button type="button" class="cf-remove" onclick="cfRemoveRow(this)" aria-label="Remove this wire size">&#10005;</button>
+        `;
+        document.getElementById('cf-rows-container').appendChild(div);
+        cfCalc();
+    }
+
+    function cfStep(btn, delta) {
+        let input = btn.parentElement.querySelector('.cf-qty');
+        let v = parseInt(input.value) || 0;
+        input.value = Math.max(0, v + delta);
+        cfCalc();
+    }
+
+    function cfSizeChange(sel) {
+        let od = sel.parentElement.querySelector('.cf-od');
+        od.style.display = sel.value === 'custom' ? 'block' : 'none';
+        if (sel.value === 'custom') od.focus();
+        cfCalc();
+    }
+
+    function cfRemoveRow(btn) {
+        let container = document.getElementById('cf-rows-container');
+        if (container.children.length <= 1) {
+            // keep at least one row - just clear its quantity
+            let r = container.querySelector('.cf-row');
+            r.querySelector('.cf-qty').value = 0;
+            r.querySelector('.cf-size').value = "";
+            r.querySelector('.cf-od').style.display = 'none';
+            r.querySelector('.cf-od').value = "";
+        } else {
+            btn.parentElement.remove();
+        }
+        cfCalc();
+    }
+
+    function cfPopulateSizes(preferred) {
+        let type = document.getElementById('cf_type').value;
+        let areas = CF_CONDUIT[type].areas;
+        let sel = document.getElementById('cf_size');
+        let sizes = CF_SIZE_ORDER.filter(s => areas[s] !== undefined);
+        sel.innerHTML = sizes.map(s => `<option value="${s}">${s} in.</option>`).join("");
+        sel.value = sizes.includes(preferred) ? preferred : (sizes.includes("2") ? "2" : sizes[0]);
+    }
+
+    function cfTypeChange() {
+        cfPopulateSizes(document.getElementById('cf_size').value);
+        cfCalc();
+    }
+
+    function cfReset() {
+        document.getElementById('cf_type').value = "pvc40";
+        document.querySelector('input[name="cf_ins"][value="XHHW2"]').checked = true;
+        cfPopulateSizes("2");
+        document.getElementById('cf-rows-container').innerHTML = "";
+        cfAddRow();
+        cfCalc();
+    }
+
+    function cfCalc() {
+        let typeKey = document.getElementById('cf_type').value;
+        let conduit = CF_CONDUIT[typeKey];
+        let tradeSize = document.getElementById('cf_size').value;
+        let conduitArea = conduit.areas[tradeSize];
+        let ins = document.querySelector('input[name="cf_ins"]:checked').value;
+
+        let totalCount = 0, totalArea = 0, breakdown = "", pendingCustom = false, pendingSize = false;
+
+        document.querySelectorAll('#cf-rows-container .cf-row').forEach(row => {
+            let qty = parseInt(row.querySelector('.cf-qty').value) || 0;
+            if (qty <= 0) return;
+            let size = row.querySelector('.cf-size').value;
+            if (size === "") { pendingSize = true; return; }
+            let area, label;
+            if (size === 'custom') {
+                let od = parseFloat(row.querySelector('.cf-od').value) || 0;
+                if (od <= 0) { pendingCustom = true; return; }
+                area = Math.PI * od * od / 4;
+                label = `Custom (${od}" OD)`;
+            } else {
+                area = CF_WIRE_AREA[ins][size];
+                label = `${cfWireLabel(size)} ${CF_INS_LABEL[ins]}`;
+            }
+            totalCount += qty;
+            totalArea += qty * area;
+            breakdown += `&bull; ${qty} x ${label}: ${area.toFixed(4)} sq in each = <strong>${(qty * area).toFixed(4)} sq in</strong><br>`;
+        });
+
+        let out = document.getElementById('cf_results');
+        out.style.display = 'block';
+
+        if (totalCount === 0) {
+            out.innerHTML = `<div class="results-header">Conduit Fill Results</div><p style="margin:0; font-size:14px;">${pendingSize ? "Select a wire size for each row that has a quantity." : pendingCustom ? "Enter the overall diameter for your custom wire." : "0 conductors in conduit. Enter a quantity and select a wire size to calculate fill."}</p>`;
+            return;
+        }
+
+        // NEC Chapter 9, Table 1 fill limits
+        let limitPct, limitWhy;
+        if (totalCount === 1) { limitPct = 53; limitWhy = "1 conductor"; }
+        else if (totalCount === 2) { limitPct = 31; limitWhy = "2 conductors"; }
+        else { limitPct = 40; limitWhy = `${totalCount} conductors`; }
+
+        let fillPct = totalArea / conduitArea * 100;
+        let allowedArea = conduitArea * limitPct / 100;
+        let passed = fillPct <= limitPct + 1e-9;
+        let cls = passed ? "" : "fail";
+
+        // Smallest compliant trade size for this conduit type
+        let minSize = null;
+        for (const s of CF_SIZE_ORDER) {
+            let a = conduit.areas[s];
+            if (a !== undefined && totalArea <= a * limitPct / 100 + 1e-9) { minSize = s; break; }
+        }
+
+        let msg;
+        if (passed) {
+            msg = `Meets NEC Chapter 9, Table 1 (${limitPct}% maximum for ${limitWhy}).`;
+            if (minSize && minSize !== tradeSize) msg += ` Smallest compliant ${conduit.name} size: <strong>${minSize} in.</strong>`;
+        } else {
+            msg = `Does NOT meet the NEC. Fill exceeds the ${limitPct}% maximum allowed for ${limitWhy} (NEC Chapter 9, Table 1). `;
+            msg += minSize
+                ? `Increase to at least <strong>${minSize} in.</strong> ${conduit.name}, or reduce the number/size of conductors.`
+                : `No standard size of ${conduit.name} is large enough. Split the conductors into multiple conduits or use a different conduit type.`;
+        }
+
+        let barWidth = Math.min(fillPct, 100);
+        let html = `<div class="results-header">Conduit Fill Results</div>`;
+        html += `<div class="cf-result-box ${cls}">`;
+        html += `<div class="cf-pct-label">Total Conduit Fill</div>`;
+        html += `<div class="cf-pct ${cls}">${fillPct.toFixed(1)}%</div>`;
+        html += `<p class="cf-status ${cls}">${passed ? "PASS - MEETS NEC" : "FAIL - EXCEEDS NEC MAXIMUM FILL"}</p>`;
+        html += `<div class="cf-bar"><div class="cf-bar-fill ${cls}" style="width:${barWidth}%"></div><div class="cf-bar-limit" style="left:${limitPct}%" title="NEC limit ${limitPct}%"></div></div>`;
+        html += `<div class="cf-bar-legend">Black marker = NEC maximum (${limitPct}%)</div>`;
+        html += `<p class="cf-msg">${msg}</p>`;
+        html += `</div>`;
+
+        html += `<div class="results-grid">`;
+        html += `<div class="results-column"><h3>Conduit</h3>`;
+        html += `<p>Type: <strong>${conduit.name}</strong></p>`;
+        html += `<p>Trade Size: <strong>${tradeSize} in.</strong></p>`;
+        html += `<p>Internal Area (100%): <strong>${conduitArea.toFixed(3)} sq in</strong></p>`;
+        html += `<p>Max Allowed Area (${limitPct}%): <strong>${allowedArea.toFixed(3)} sq in</strong></p>`;
+        html += `</div>`;
+        html += `<div class="results-column"><h3>Conductors</h3>`;
+        html += `<p>Total Conductors: <strong>${totalCount}</strong></p>`;
+        html += `<p>Total Conductor Area: <strong>${totalArea.toFixed(4)} sq in</strong></p>`;
+        html += `<p>${passed ? "Remaining Capacity" : "Over Limit By"}: <strong>${Math.abs(allowedArea - totalArea).toFixed(4)} sq in</strong></p>`;
+        html += `<p>Insulation: <strong>${CF_INS_LABEL[ins]}</strong></p>`;
+        html += `</div></div>`;
+
+        if (pendingCustom || pendingSize) {
+            html += `<p style="font-size:13px; color:#d9534f; margin:10px 0 0 0;">Note: ${pendingSize ? "a row with a quantity has no wire size selected" : "a custom-diameter row has no diameter entered"} and is not included in this total.</p>`;
+        }
+
+        html += `<details class="math-box">`;
+        html += `<summary>Calculation Math Breakdown (Click to expand)</summary>`;
+        html += `<div class="math-box-content">${breakdown}<br>`;
+        html += `Total Conductor Area = ${totalArea.toFixed(4)} sq in<br>`;
+        html += `Fill % = ${totalArea.toFixed(4)} / ${conduitArea.toFixed(3)} x 100 = <strong>${fillPct.toFixed(2)}%</strong><br>`;
+        html += `NEC limit = ${limitPct}% (${limitWhy})<br><br>`;
+        html += `<em>Conductor areas: NEC Chapter 9, Table 5 (${CF_INS_LABEL[ins]}). Conduit areas: NEC Chapter 9, Table 4.`;
+        if (typeKey === 'alum') html += ` Aluminum rigid conduit uses the same Table 4 dimensions as galvanized RMC.`;
+        html += ` Custom diameters use area = &pi; x d&sup2; / 4. Bare grounding conductors are counted per Table 8 and are not included unless entered above.</em>`;
+        html += `</div></details>`;
+
+        out.innerHTML = html;
+    }
+
+    cfPopulateSizes("2");
+    cfAddRow();
+    cfCalc();
 </script>
 </body>
 </html>
