@@ -547,7 +547,9 @@
         if (ccc <= 6) return 0.80;
         if (ccc <= 9) return 0.70;
         if (ccc <= 20) return 0.50;
-        return 0.45;
+        if (ccc <= 30) return 0.45;
+        if (ccc <= 40) return 0.40;
+        return 0.35;
     }
 
     function applySmallConductor(size, ampacity) {
@@ -574,7 +576,6 @@
     function sizeConduit(phaseWire, tWires, egcWire) {
         let areaReq = (WIRE_DATA[phaseWire][2] * (tWires - 1)) + WIRE_DATA[egcWire][2]; 
         
-        // NEC Chapter 9 Table 1 Fill Limits
         let fillLimit = 0.40;
         if (tWires === 1) fillLimit = 0.53;
         else if (tWires === 2) fillLimit = 0.31;
@@ -582,7 +583,6 @@
         for (let i = 0; i < CONDUIT_ORDER.length; i++) {
             let size = CONDUIT_ORDER[i];
             let area40 = Math.min(CONDUIT_DATA_RMC[size], CONDUIT_DATA_PVC[size]);
-            // area40 is exactly 40% of the internal area. We calculate 100% area to apply the correct fill limit.
             let area100 = area40 / 0.40;
             let maxAllowableArea = area100 * fillLimit;
             
@@ -640,7 +640,7 @@
     }
 
     function getNEMAStarterSize(hp, fla, volts, phase) {
-        let size = "1"; // Default minimum recommended size
+        let size = "1"; 
         const NEMA_AMPS = [
             { s: "1", a: 27 }, { s: "2", a: 45 }, { s: "3", a: 90 },
             { s: "4", a: 135 }, { s: "5", a: 270 }, { s: "6", a: 540 },
@@ -670,7 +670,7 @@
                     else if (hp <= 450) size = "8";
                     else size = "9";
                 }
-            } else { // 1-Phase
+            } else { 
                 if (volts === 120) {
                     if (hp <= 2) size = "1";
                     else if (hp <= 3) size = "2";
@@ -684,7 +684,6 @@
                 }
             }
         } else {
-            // Custom FLA Input: Determine by NEMA continuous amp rating (ignoring Size 00/0)
             for (let i = 0; i < NEMA_AMPS.length; i++) {
                 if (fla <= NEMA_AMPS[i].a) {
                     size = NEMA_AMPS[i].s;
